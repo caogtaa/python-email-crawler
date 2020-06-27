@@ -3,15 +3,10 @@ from settings import LOGGING
 import logging, logging.config
 from logging.handlers import TimedRotatingFileHandler
 from logging.handlers import RotatingFileHandler
-import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error, urllib.parse
-import ssl
-import re, urllib.parse
+import urllib, urllib2
+import re, urlparse
 import traceback
 from database import CrawlerDb
-
-ctx = ssl.create_default_context()
-ctx.check_hostname = False
-ctx.verify_mode = ssl.CERT_NONE
 
 # Debugging
 # import pdb;pdb.set_trace()
@@ -33,11 +28,8 @@ url_regex = re.compile('<a\s.*?href=[\'"](.*?)[\'"].*?>')
 # http://stackoverflow.com/questions/8010005/python-re-infinite-execution
 # url_regex = re.compile('<a\s(?:.*?\s)*?href=[\'"](.*?)[\'"].*?>')
 
-baidu_url_regex = re.compile('url\?q=(.*?)&amp;sa=')
-baidu_adurl_regex = re.compile('adurl=(.*?)"')
-
 # Maximum number of search results to start the crawl
-MAX_SEARCH_RESULTS = 10
+MAX_SEARCH_RESULTS = 150
 
 EMAILS_FILENAME = 'data/emails.csv'
 DOMAINS_FILENAME = 'data/domains.csv'
@@ -66,8 +58,7 @@ def crawl(keywords):
 			Store the HTML
 	"""
 	logger.info("-"*40)
-	# logger.info("Keywords to Google for: %s" % keywords.decode('utf-8'))
-	logger.info("Keywords to Google for: %s" % keywords)
+	logger.info("Keywords to Google for: %s" % keywords.decode('utf-8'))
 	logger.info("-"*40)
 
 	# Step 1: Crawl Google Page
@@ -76,21 +67,13 @@ def crawl(keywords):
 	# Google search results are paged with 10 urls each. There are also adurls
 	for page_index in range(0, MAX_SEARCH_RESULTS, 10):
 		query = {'q': keywords}
-		url = 'http://www.google.com/search?' + urllib.parse.urlencode(query) + '&start=' + str(page_index)
-		# query = {'wd': keywords}
-		# url = 'http://www.baidu.com/s?' + urllib.parse.urlencode(query) + '&pn=' + str(page_index)
-		
+		url = 'http://www.google.com/search?' + urllib.urlencode(query) + '&start=' + str(page_index)
 		data = retrieve_html(url)
 		# 	print("data: \n%s" % data)
 		for url in google_url_regex.findall(data):
-			db.enqueue(str(url))
+			db.enqueue(unicode(url))
 		for url in google_adurl_regex.findall(data):
-			db.enqueue(str(url))
-
-		# for url in baidu_url_regex.findall(data):
-		# 	db.enqueue(str(url))
-		# for url in baidu_adurl_regex.findall(data):
-		# 	db.enqueue(str(url))
+			db.enqueue(unicode(url))
 
 	# Step 2: Crawl each of the search result
 	# We search till level 2 deep
@@ -111,31 +94,26 @@ def retrieve_html(url):
 
 	On any error, return.
 	"""
-	req = urllib.request.Request(url)
+	req = urllib2.Request(url)
 	req.add_header('User-Agent', 'Just-Crawling 0.1')
-	# request = None
+	request = None
 	status = 0
-	data = ""
 	try:
 		logger.info("Crawling %s" % url)
-		with urllib.request.urlopen(req, context=ctx) as f:
-			data = f.read()
-
-		# request = urllib.request.urlopen(req)
-	except urllib.error.URLError as e:
+		request = urllib2.urlopen(req)
+	except urllib2.URLError, e:
 		logger.error("Exception at url: %s\n%s" % (url, e))
-	except urllib.error.HTTPError as e:
+	except urllib2.HTTPError, e:
 		status = e.code
-	except Exception as e:
+	except Exception, e:
 		return
 	if status == 0:
 		status = 200
 
-	# try:
-	# 	data = request.read()
-	# except Exception as e:
-	# 	logger.error(e)
-	# 	data = ""
+	try:
+		data = request.read()
+	except Exception, e:
+		return
 
 	return str(data)
 
@@ -186,7 +164,7 @@ def find_links_in_html_with_same_hostname(url, html):
 	"""
 	if (html == None):
 		return set()
-	url = urllib.parse.urlparse(url)
+	url = urlparse.urlparse(url)
 	links = url_regex.findall(html)
 	link_set = set()
 	for link in links:
@@ -202,38 +180,11 @@ def find_links_in_html_with_same_hostname(url, html):
 			elif link.startswith("#"):
 				continue
 			else:
-				link_set.add(urllib.parse.urljoin(url.geturl(),link))
-		except Exception as e:
+				link_set.add(urlparse.urljoin(url.geturl(),link))
+		except Exception, e:
 			pass
 
 	return link_set
-
-def test():
-	keywords = 'python3'
-
-	page = 0
-	step = 10
-	query = {'wd': keywords}
-	url = 'http://www.baidu.com/s?' + urllib.parse.urlencode(query) + '&pn=' + str(page * step)
-	data = retrieve_html(url)
-
-	with open("pagecache.html", "w") as output:
-		output.write(data)
-
-
-		# for url in baidu_url_regex.findall(data):
-		# 	db.enqueue(str(url))
-		# for url in baidu_adurl_regex.findall(data):
-		# 	db.enqueue(str(url))
-
-def testLocal():
-	with open("pagecache.html", "r") as input:
-		content = input.read()
-
-	for url in google_url_regex.findall(content):
-		print(url)
-	for url in google_adurl_regex.findall(content):
-		print(url)
 
 def main(argv):
 	try:
@@ -267,7 +218,7 @@ def main(argv):
 	except KeyboardInterrupt:
 		logger.error("Stopping (KeyboardInterrupt)")
 		sys.exit()
-	except Exception as e:
+	except Exception, e:
 		logger.error("EXCEPTION: %s " % e)
 		traceback.print_exc()
 
@@ -276,5 +227,3 @@ if __name__ == "__main__":
 	# window = tk.Tk()
 
 	main(sys.argv)
-	# test()
-	# testLocal()
