@@ -19,11 +19,6 @@ ctx.verify_mode = ssl.CERT_NONE
 # Logging
 #logging.config.dictConfig(LOGGING)
 logger = logging.getLogger("crawler_logger")
-logger.setLevel(logging.INFO)
-handler = TimedRotatingFileHandler('logs/log','midnight',1,30)
-formatter = logging.Formatter('%(asctime)s %(name)-2s %(levelname)-2s %(message)s','%y-%m-%d %H:%M:%S')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
 
 google_adurl_regex = re.compile('adurl=(.*?)"')
 google_url_regex = re.compile('url\?q=(.*?)&amp;sa=')
@@ -106,7 +101,7 @@ def crawl(keywords, output_ui: OutputUIInterface = None):
 		uncrawled = db.dequeue()
 		if (uncrawled == False):
 			break
-		email_set = find_emails_2_level_deep(uncrawled.url)
+		email_set = find_emails_2_level_deep(uncrawled.url, output_ui)
 		if (len(email_set) > 0):
 			db.crawled(uncrawled, ",".join(list(email_set)))
 			if output_ui:
@@ -149,7 +144,7 @@ def retrieve_html(url):
 	return str(data)
 
 
-def find_emails_2_level_deep(url):
+def find_emails_2_level_deep(url, output_ui: OutputUIInterface):
 	"""
 	Find the email at level 1.
 	If there is an email, good. Return that email
@@ -174,6 +169,8 @@ def find_emails_2_level_deep(url):
 			if (html == None):
 				continue
 			email_set = find_emails_in_html(html)
+			if output_ui:
+				output_ui.append(list(email_set))
 			db.enqueue(link, list(email_set))
 
 		# We return an empty set
