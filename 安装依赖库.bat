@@ -1,0 +1,1 @@
+pip install SQLAlchemy-1.3.18-cp37-cp37m-win_amd64.whl
