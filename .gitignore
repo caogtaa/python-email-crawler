@@ -34,3 +34,4 @@ docs/_build/
 crawler.sqlite
 pycrawler.log
 emails.csv
+.vscode
