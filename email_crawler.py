@@ -1,5 +1,7 @@
 from settings import LOGGING
 import logging, logging.config
+from logging.handlers import TimedRotatingFileHandler
+from logging.handlers import RotatingFileHandler
 import urllib, urllib2
 import re, urlparse
 import traceback
@@ -9,8 +11,13 @@ from database import CrawlerDb
 # import pdb;pdb.set_trace()
 
 # Logging
-logging.config.dictConfig(LOGGING)
+#logging.config.dictConfig(LOGGING)
 logger = logging.getLogger("crawler_logger")
+logger.setLevel(logging.INFO)
+handler = TimedRotatingFileHandler('logs/log','midnight',1,30)
+formatter = logging.Formatter('%(asctime)s %(name)-2s %(levelname)-2s %(message)s','%y-%m-%d %H:%M:%S')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 google_adurl_regex = re.compile('adurl=(.*?)"')
 google_url_regex = re.compile('url\?q=(.*?)&amp;sa=')
@@ -177,9 +184,6 @@ def find_links_in_html_with_same_hostname(url, html):
 			pass
 
 	return link_set
-
-
-
 
 if __name__ == "__main__":
 	import sys
