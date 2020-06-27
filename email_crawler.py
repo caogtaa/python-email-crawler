@@ -1,6 +1,4 @@
 import sys
-import time
-import threading
 from settings import LOGGING
 import logging, logging.config
 from logging.handlers import TimedRotatingFileHandler
@@ -9,10 +7,6 @@ import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error,
 import ssl
 import re, urllib.parse
 import traceback
-import queue
-# import tkinter as tk
-from tkinter.scrolledtext import ScrolledText
-from tkthread import tk, TkThread
 from database import CrawlerDb
 
 ctx = ssl.create_default_context()
@@ -48,10 +42,6 @@ MAX_SEARCH_RESULTS = 10
 EMAILS_FILENAME = 'data/emails.csv'
 DOMAINS_FILENAME = 'data/domains.csv'
 
-# Set up the database
-db = CrawlerDb()
-db.connect()
-
 class OutputUIInterface:
 	def append(self, ls):
 		pass
@@ -60,6 +50,11 @@ class OutputUIInterface:
 		pass
 
 def crawl(keywords, output_ui: OutputUIInterface = None):
+	# Set up the database
+	global db
+	db = CrawlerDb()
+	db.connect()
+
 	"""
 	This method will
 
@@ -247,31 +242,44 @@ def testParseLocal():
 	for url in google_adurl_regex.findall(content):
 		print(url)
 
+def export_emails():
+	# Set up the database
+	db_export = CrawlerDb()
+	db_export.connect()
+
+	logger.info("="*40)
+	logger.info("Processing...")
+	emails = db_export.get_all_emails()
+	logger.info("There are %d emails" % len(emails))
+	file = open(EMAILS_FILENAME, "w+")
+	file.writelines("\n".join(emails))
+	file.close()
+	logger.info("All emails saved to ./data/emails.csv")
+	logger.info("="*40)
+
+def export_domains():
+	db_export = CrawlerDb()
+	db_export.connect()
+
+	logger.info("="*40)
+	logger.info("Processing...")
+	domains = db_export.get_all_domains()
+	logger.info("There are %d domains" % len(domains))
+	file = open(DOMAINS_FILENAME, "w+")
+	file.writelines("\n".join(domains))
+	file.close()
+	logger.info("All domains saved to ./data/domains.csv")
+	logger.info("="*40)
+
 def crawler_main(argv):
 	try:
 		arg = argv[1].lower()
 		if (arg == '--emails') or (arg == '-e'):
 			# Get all the emails and save in a CSV
-			logger.info("="*40)
-			logger.info("Processing...")
-			emails = db.get_all_emails()
-			logger.info("There are %d emails" % len(emails))
-			file = open(EMAILS_FILENAME, "w+")
-			file.writelines("\n".join(emails))
-			file.close()
-			logger.info("All emails saved to ./data/emails.csv")
-			logger.info("="*40)
+			export_emails()
 		elif (arg == '--domains') or (arg == '-d'):
 			# Get all the domains and save in a CSV
-			logger.info("="*40)
-			logger.info("Processing...")
-			domains = db.get_all_domains()
-			logger.info("There are %d domains" % len(domains))
-			file = open(DOMAINS_FILENAME, "w+")
-			file.writelines("\n".join(domains))
-			file.close()
-			logger.info("All domains saved to ./data/domains.csv")
-			logger.info("="*40)
+			export_domains()
 		else:
 			# Crawl the supplied keywords!
 			crawl(arg)

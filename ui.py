@@ -7,10 +7,9 @@ from logging.handlers import TimedRotatingFileHandler
 from logging.handlers import RotatingFileHandler
 import traceback
 import queue
-# import tkinter as tk
+import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
-from tkthread import tk, TkThread
-from email_crawler import crawl, crawler_main, OutputUIInterface
+from email_crawler import crawl, crawler_main, export_emails, OutputUIInterface
 
 # Debugging
 # import pdb;pdb.set_trace()
@@ -130,18 +129,17 @@ if __name__ == "__main__":
 			# disable btn style will will not disable event binding
 			btn_search['state'] = tk.DISABLED
 			btn_search.unbind("<Button-1>", search_bind_id)
-			async_test_crawl(keyword, output)
-			# async_crawl(keyword, output)
+			# async_test_crawl(keyword, output)
+			async_crawl(keyword, output)
 
 	global search_bind_id
 	search_bind_id = btn_search.bind("<Button-1>", handle_search)
 
-	def handle_export(e):
-		# todo: export
-		pass
+	def handle_export_emails(e):
+		threading.Thread(target=export_emails, name="export_emails").start()
 
 	global export_bind_id
-	export_bind_id = btn_export.bind("<Button-1>", handle_export)
+	export_bind_id = btn_export.bind("<Button-1>", handle_export_emails)
 
 	peek_ui_queue_slowly()
 	window.mainloop()
