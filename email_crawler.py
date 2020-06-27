@@ -7,6 +7,7 @@ import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error,
 import ssl
 import re, urllib.parse
 import traceback
+import tkinter as tk
 from database import CrawlerDb
 
 ctx = ssl.create_default_context()
@@ -46,8 +47,28 @@ DOMAINS_FILENAME = 'data/domains.csv'
 db = CrawlerDb()
 db.connect()
 
+class OutputUI:
+	def __init__(self, ctrl: tk.Text):
+		self._ctrl = ctrl
 
-def crawl(keywords):
+	def append(self, ls):
+		for line in ls:
+			self.append_line(line)
+
+	def append_line(self, line):
+		ctrl = self._ctrl
+		numlines = int(ctrl.index('end - 1 line').split('.')[0])
+		ctrl['state'] = 'normal'
+		if numlines >= 100:
+			ctrl.delete(1.0, 2.0)
+		if ctrl.index('end-1c')!='1.0':
+			ctrl.insert('end', '\n')
+		ctrl.insert('end', line)
+		ctrl['state'] = 'disabled'
+		
+
+
+def crawl(keywords, output_ui: OutputUI = None):
 	"""
 	This method will
 
@@ -102,6 +123,8 @@ def crawl(keywords):
 		email_set = find_emails_2_level_deep(uncrawled.url)
 		if (len(email_set) > 0):
 			db.crawled(uncrawled, ",".join(list(email_set)))
+			if output_ui:
+				output_ui.append(list(email_set))
 		else:
 			db.crawled(uncrawled, None)
 
@@ -235,6 +258,10 @@ def testLocal():
 	for url in google_adurl_regex.findall(content):
 		print(url)
 
+def test_crawl(keywords, output_ui):
+	for i in range(100):
+		output_ui.append([str(i), "check", "hello"])
+
 def main(argv):
 	try:
 		arg = argv[1].lower()
@@ -275,6 +302,69 @@ if __name__ == "__main__":
 	#import tkinter as tk
 	# window = tk.Tk()
 
-	main(sys.argv)
+	# main(sys.argv)
 	# test()
 	# testLocal()
+
+	# https://realpython.com/python-gui-tkinter/#:~:text=Python%20has%20a%20lot%20of,Windows%2C%20macOS%2C%20and%20Linux.&text=Although%20Tkinter%20is%20considered%20the,framework%2C%20it's%20not%20without%20criticism.
+	window = tk.Tk()
+
+	# mani frame随外部窗口拉伸
+	frm_main = tk.Frame(borderwidth=3)
+	frm_main.pack(fill=tk.BOTH, expand=True)
+
+	ent_keyword = tk.Entry(master=frm_main, width=50)
+	ent_keyword.pack()
+
+	btn_search = tk.Button(master=frm_main, text=r"搜索", width=8)
+	btn_search.pack()
+
+	# 搜索结果在main frame内自动拉伸
+	txt_result = tk.Text(master=frm_main, state='disabled')
+	txt_result.pack(fill=tk.BOTH, expand=True)
+
+	btn_export = tk.Button(master=frm_main, text=r"导出所有地址", width=10)
+	btn_export.pack(side=tk.BOTTOM)
+
+	# bind event
+	output = OutputUI(txt_result)
+	def handle_search(e):
+		keyword = ent_keyword.get()
+		if keyword and len(keyword) > 2:
+			# disable btn
+			btn_search['state'] = 'disabled'
+			# todo:
+			test_crawl(keyword, output)
+
+	btn_search.bind("<Button-1>", handle_search)
+
+	# label = tk.Label(
+	# 	text="Hello, Tkinter",
+	# 	fg="white",
+	# 	bg="black",
+	# 	width=10,
+	# 	height=10
+	# )
+
+	# button = tk.Button(
+	# 	text="Click me!",
+	# 	width=25,
+	# 	height=5,
+	# 	bg="blue",
+	# 	fg="yellow",
+	# )
+
+	# text_box = tk.Text()
+	# text_box.pack()
+	# text_box.get("1.0", tk.END)
+
+	# frame = tk.Frame()
+	# frame.pack()
+
+	# frame = tk.Frame()
+	# label = tk.Label(master=frame)
+
+	# label.place(x=0, y=0)
+
+	window.mainloop()
+
