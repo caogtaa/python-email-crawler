@@ -1,4 +1,6 @@
 import sys
+import time
+import threading
 from settings import LOGGING
 import logging, logging.config
 from logging.handlers import TimedRotatingFileHandler
@@ -7,7 +9,10 @@ import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error,
 import ssl
 import re, urllib.parse
 import traceback
-import tkinter as tk
+import queue
+# import tkinter as tk
+from tkinter.scrolledtext import ScrolledText
+from tkthread import tk, TkThread
 from database import CrawlerDb
 
 ctx = ssl.create_default_context()
@@ -47,6 +52,9 @@ DOMAINS_FILENAME = 'data/domains.csv'
 db = CrawlerDb()
 db.connect()
 
+global main_window
+ui_callback_queue = queue.Queue()
+
 class OutputUI:
 	def __init__(self, ctrl: tk.Text):
 		self._ctrl = ctrl
@@ -64,11 +72,36 @@ class OutputUI:
 		if ctrl.index('end-1c')!='1.0':
 			ctrl.insert('end', '\n')
 		ctrl.insert('end', line)
+		ctrl.see(tk.END)
 		ctrl['state'] = 'disabled'
-		
 
+
+class MainThreadUI:
+	'''can be accessed from worker thread
+	dispatch msg to main thread object
+	'''
+
+	def __init__(self, output_ui: OutputUI):
+		self._output_ui = output_ui
+
+	def append(self, ls):
+		# dispatch to main thread
+		put_ui_queue(lambda: self._output_ui.append(ls))
+
+	def append_line(self, line):
+		# dispatch to main thread
+		put_ui_queue(lambda: self._output_ui.append_line(line))
+
+def async_crawl(keyword, output_ui: OutputUI):
+	async_output_ui = MainThreadUI(output_ui)
+
+	# runner = CrawlRunner(keyword, output_ui)
+	t = threading.Thread(target=crawl, args=(keyword, async_output_ui,), name="crawler")
+	t.start()
 
 def crawl(keywords, output_ui: OutputUI = None):
+	# test_crawl(keywords, output_ui)
+	# return
 	"""
 	This method will
 
@@ -242,14 +275,12 @@ def test():
 
 	with open("pagecache.html", "w") as output:
 		output.write(data)
-
-
 		# for url in baidu_url_regex.findall(data):
 		# 	db.enqueue(str(url))
 		# for url in baidu_adurl_regex.findall(data):
 		# 	db.enqueue(str(url))
 
-def testLocal():
+def testParseLocal():
 	with open("pagecache.html", "r") as input:
 		content = input.read()
 
@@ -260,7 +291,15 @@ def testLocal():
 
 def test_crawl(keywords, output_ui):
 	for i in range(100):
+		time.sleep(1)
 		output_ui.append([str(i), "check", "hello"])
+
+def async_test_crawl(keyword, output_ui: OutputUI):
+	async_output_ui = MainThreadUI(output_ui)
+
+	# runner = CrawlRunner(keyword, output_ui)
+	t = threading.Thread(target=test_crawl, args=(keyword, async_output_ui,), name="crawler")
+	t.start()
 
 def main(argv):
 	try:
@@ -298,17 +337,28 @@ def main(argv):
 		logger.error("EXCEPTION: %s " % e)
 		traceback.print_exc()
 
-if __name__ == "__main__":
-	#import tkinter as tk
-	# window = tk.Tk()
+def peek_ui_queue_slowly():
+	while True:
+		try:
+			callback = ui_callback_queue.get(False)
+		except:
+			break
 
+		callback()
+
+	main_window.after(1000, peek_ui_queue_slowly)
+
+def put_ui_queue(callback):
+	ui_callback_queue.put(callback)
+
+if __name__ == "__main__":
 	# main(sys.argv)
 	# test()
-	# testLocal()
+	# testParseLocal()
 
 	# https://realpython.com/python-gui-tkinter/#:~:text=Python%20has%20a%20lot%20of,Windows%2C%20macOS%2C%20and%20Linux.&text=Although%20Tkinter%20is%20considered%20the,framework%2C%20it's%20not%20without%20criticism.
-	window = tk.Tk()
-
+	main_window = window = tk.Tk()
+	
 	# mani frame随外部窗口拉伸
 	frm_main = tk.Frame(borderwidth=3)
 	frm_main.pack(fill=tk.BOTH, expand=True)
@@ -320,7 +370,7 @@ if __name__ == "__main__":
 	btn_search.pack()
 
 	# 搜索结果在main frame内自动拉伸
-	txt_result = tk.Text(master=frm_main, state='disabled')
+	txt_result = ScrolledText(master=frm_main, state='disabled')
 	txt_result.pack(fill=tk.BOTH, expand=True)
 
 	btn_export = tk.Button(master=frm_main, text=r"导出所有地址", width=10)
@@ -331,12 +381,24 @@ if __name__ == "__main__":
 	def handle_search(e):
 		keyword = ent_keyword.get()
 		if keyword and len(keyword) > 2:
-			# disable btn
-			btn_search['state'] = 'disabled'
-			# todo:
-			test_crawl(keyword, output)
+			# disable btn style will will not disable event binding
+			btn_search['state'] = tk.DISABLED
+			btn_search.unbind("<Button-1>", search_bind_id)
+			async_test_crawl(keyword, output)
+			# async_crawl(keyword, output)
 
-	btn_search.bind("<Button-1>", handle_search)
+	global search_bind_id
+	search_bind_id = btn_search.bind("<Button-1>", handle_search)
+
+	def handle_export(e):
+		# todo: export
+		pass
+
+	global export_bind_id
+	export_bind_id = btn_export.bind("<Button-1>", handle_export)
+
+	peek_ui_queue_slowly()
+	window.mainloop()
 
 	# label = tk.Label(
 	# 	text="Hello, Tkinter",
@@ -365,6 +427,4 @@ if __name__ == "__main__":
 	# label = tk.Label(master=frame)
 
 	# label.place(x=0, y=0)
-
-	window.mainloop()
 
