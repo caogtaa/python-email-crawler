@@ -32,7 +32,7 @@ baidu_url_regex = re.compile('url\?q=(.*?)&amp;sa=')
 baidu_adurl_regex = re.compile('adurl=(.*?)"')
 
 # Maximum number of search results to start the crawl
-MAX_SEARCH_RESULTS = 10
+MAX_SEARCH_RESULTS = 100
 
 EMAILS_FILENAME = 'data/emails.csv'
 DOMAINS_FILENAME = 'data/domains.csv'
@@ -126,10 +126,10 @@ def retrieve_html(url):
 			data = f.read()
 
 		# request = urllib.request.urlopen(req)
-	except urllib.error.URLError as e:
-		logger.error("Exception at url: %s\n%s" % (url, e))
 	except urllib.error.HTTPError as e:
 		status = e.code
+	except urllib.error.URLError as e:
+		logger.error("Exception at url: %s\n%s" % (url, e))
 	except Exception as e:
 		return
 	if status == 0:
@@ -182,6 +182,10 @@ def find_emails_in_html(html):
 		return set()
 	email_set = set()
 	for email in email_regex.findall(html):
+		# ignore image name
+		if email.endswith(".png") or email.endswith(".jpg"):
+			continue
+
 		email_set.add(email)
 	return email_set
 
