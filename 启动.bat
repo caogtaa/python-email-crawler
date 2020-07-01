@@ -1,1 +1,1 @@
-python ui.py
+start /wait cmd /c "python ui.py"

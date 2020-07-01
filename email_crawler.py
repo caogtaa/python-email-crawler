@@ -1,4 +1,5 @@
 import sys
+import string
 from settings import LOGGING
 import logging, logging.config
 from logging.handlers import TimedRotatingFileHandler
@@ -8,6 +9,8 @@ import ssl
 import re, urllib.parse
 import traceback
 from database import CrawlerDb
+
+DEFAULT_SITE = r"www.google.com"
 
 ctx = ssl.create_default_context()
 ctx.check_hostname = False
@@ -44,10 +47,10 @@ class OutputUIInterface:
 	def append_line(self, line):
 		pass
 
-def crawl(keywords, output_ui: OutputUIInterface = None):
+def crawl(site, keywords, output_ui: OutputUIInterface = None):
 	# Set up the database
 	global db
-	db = CrawlerDb()
+	db = CrawlerDb(site)
 	db.connect()
 
 	"""
@@ -78,7 +81,8 @@ def crawl(keywords, output_ui: OutputUIInterface = None):
 	# Google search results are paged with 10 urls each. There are also adurls
 	for page_index in range(0, MAX_SEARCH_RESULTS, 10):
 		query = {'q': keywords}
-		url = 'http://www.google.com/search?' + urllib.parse.urlencode(query) + '&start=' + str(page_index)
+		url = 'http://%s/search?' % site
+		url = url + urllib.parse.urlencode(query) + '&start=' + str(page_index)
 		# query = {'wd': keywords}
 		# url = 'http://www.baidu.com/s?' + urllib.parse.urlencode(query) + '&pn=' + str(page_index)
 		
@@ -243,9 +247,9 @@ def testParseLocal():
 	for url in google_adurl_regex.findall(content):
 		print(url)
 
-def export_emails():
+def export_emails(site):
 	# Set up the database
-	db_export = CrawlerDb()
+	db_export = CrawlerDb(site)
 	db_export.connect()
 
 	logger.info("="*40)
@@ -258,8 +262,8 @@ def export_emails():
 	logger.info("All emails saved to ./data/emails.csv")
 	logger.info("="*40)
 
-def export_domains():
-	db_export = CrawlerDb()
+def export_domains(site):
+	db_export = CrawlerDb(site)
 	db_export.connect()
 
 	logger.info("="*40)
@@ -277,13 +281,13 @@ def crawler_main(argv):
 		arg = argv[1].lower()
 		if (arg == '--emails') or (arg == '-e'):
 			# Get all the emails and save in a CSV
-			export_emails()
+			export_emails(site=DEFAULT_SITE)
 		elif (arg == '--domains') or (arg == '-d'):
 			# Get all the domains and save in a CSV
-			export_domains()
+			export_domains(site=DEFAULT_SITE)
 		else:
 			# Crawl the supplied keywords!
-			crawl(arg)
+			crawl(site=DEFAULT_SITE, keywords=arg)
 
 	except KeyboardInterrupt:
 		logger.error("Stopping (KeyboardInterrupt)")

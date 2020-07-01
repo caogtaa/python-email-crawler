@@ -9,7 +9,7 @@ import traceback
 import queue
 import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
-from email_crawler import crawl, crawler_main, export_emails, OutputUIInterface
+from email_crawler import DEFAULT_SITE, crawl, crawler_main, export_emails, OutputUIInterface
 
 # Debugging
 # import pdb;pdb.set_trace()
@@ -63,23 +63,23 @@ class MainThreadUI(OutputUIInterface):
 		# dispatch to main thread
 		put_ui_queue(lambda: self._output_ui.append_line(line))
 
-def async_crawl(keyword, output_ui: OutputUIInterface):
+def async_crawl(site, keyword, output_ui: OutputUIInterface):
 	async_output_ui = MainThreadUI(output_ui)
 
 	# runner = CrawlRunner(keyword, output_ui)
-	t = threading.Thread(target=crawl, args=(keyword, async_output_ui,), name="crawler")
+	t = threading.Thread(target=crawl, args=(site, keyword, async_output_ui,), name="crawler")
 	t.start()
 
-def test_crawl(keywords, output_ui):
+def test_crawl(site, keywords, output_ui):
 	for i in range(100):
 		time.sleep(1)
 		output_ui.append([str(i), "check", "hello"])
 
-def async_test_crawl(keyword, output_ui: OutputUI):
+def async_test_crawl(site, keyword, output_ui: OutputUI):
 	async_output_ui = MainThreadUI(output_ui)
 
-	# runner = CrawlRunner(keyword, output_ui)
-	t = threading.Thread(target=test_crawl, args=(keyword, async_output_ui,), name="crawler")
+	# runner = CrawlRunner(site, keyword, output_ui)
+	t = threading.Thread(target=test_crawl, args=(site, keyword, async_output_ui,), name="crawler")
 	t.start()
 
 def peek_ui_queue_slowly():
@@ -108,8 +108,24 @@ if __name__ == "__main__":
 	frm_main = tk.Frame(borderwidth=3)
 	frm_main.pack(fill=tk.BOTH, expand=True)
 
-	ent_keyword = tk.Entry(master=frm_main, width=50)
-	ent_keyword.pack()
+	### input area
+	frm_input = tk.Frame(master=frm_main, height=3)
+	frm_input.pack(fill=tk.X)
+
+	lbl_site = tk.Label(master=frm_input, text=r"网站: ")
+	lbl_site.pack(side=tk.LEFT)
+
+	site_name = tk.StringVar()
+	site_name.set(DEFAULT_SITE)
+	ent_site = tk.Entry(master=frm_input, width=50, textvariable=site_name)
+	ent_site.pack(side=tk.LEFT)
+
+	lbl_keyword = tk.Label(master=frm_input, text=r"   关键字: ")
+	lbl_keyword.pack(side=tk.LEFT)
+
+	ent_keyword = tk.Entry(master=frm_input, width=15)
+	ent_keyword.pack(side=tk.LEFT)
+	### end input area	
 
 	btn_search = tk.Button(master=frm_main, text=r"搜索", width=8)
 	btn_search.pack()
@@ -124,19 +140,22 @@ if __name__ == "__main__":
 	# bind event
 	output = OutputUI(txt_result)
 	def handle_search(e):
+		site = site_name.get()
 		keyword = ent_keyword.get()
-		if keyword and len(keyword) > 2:
+		if len(site) > 2 and keyword and len(keyword) > 2:
 			# disable btn style will will not disable event binding
 			btn_search['state'] = tk.DISABLED
 			btn_search.unbind("<Button-1>", search_bind_id)
 			# async_test_crawl(keyword, output)
-			async_crawl(keyword, output)
+			async_crawl(site, keyword, output)
 
 	global search_bind_id
 	search_bind_id = btn_search.bind("<Button-1>", handle_search)
 
 	def handle_export_emails(e):
-		threading.Thread(target=export_emails, name="export_emails").start()
+		site = site_name.get()
+		if len(site) > 2:
+			threading.Thread(target=export_emails, args=(site,), name="export_emails").start()
 
 	global export_bind_id
 	export_bind_id = btn_export.bind("<Button-1>", handle_export_emails)

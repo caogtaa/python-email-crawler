@@ -1,17 +1,29 @@
+import os
+import string
 from sqlalchemy import create_engine, Table, Column, Integer, Unicode, Boolean, MetaData, select
 import urllib.parse
 
-DATABASE_NAME = 'data/crawler.sqlite'
+CUR_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_NAME_TEMPLATE = 'data/%s/crawler.sqlite'
 HTML_DIR = 'data/html/'
+DEFAULT_FOLDER = r'www.google.com'
+
+def validated_file_name(s):
+	valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+	return ''.join(c for c in s if c in valid_chars)
 
 class CrawlerDb:
 
-	def __init__(self):
+	def __init__(self, folder=DEFAULT_FOLDER):
+		self.folder = validated_file_name(folder)
 		self.connected = False
 
 	def connect(self):
+		db_folder = os.path.join(CUR_DIR, "data", self.folder)
+		if not os.path.exists(db_folder):
+			os.makedirs(db_folder)
 
-		self.engine = create_engine('sqlite:///' + DATABASE_NAME)
+		self.engine = create_engine('sqlite:///' + DATABASE_NAME_TEMPLATE % self.folder)
 		self.connection = self.engine.connect()
 		self.connected = True if self.connection else False
 		self.metadata = MetaData()
@@ -120,7 +132,7 @@ class CrawlerDb:
 		self.connection.close()
 		
 
-	def save_html(filename, html):
+	def save_html(self, filename, html):
 		filename = os.path.join(HTML_DIR, filename)
 		file = open(filename,"w+")
 		file.writelines(html)
@@ -128,7 +140,7 @@ class CrawlerDb:
 
 
 	def test(self):
-		c = CrawlerDb()
+		c = CrawlerDb(folder=DEFAULT_FOLDER)
 		c.connect()
 		# c.enqueue(['a12222', '11'])
 		# c.enqueue(['dddaaaaaa2', '22'])
