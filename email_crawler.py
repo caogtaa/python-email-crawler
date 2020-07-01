@@ -86,12 +86,15 @@ def crawl(site, keywords, output_ui: OutputUIInterface = None):
 		# query = {'wd': keywords}
 		# url = 'http://www.baidu.com/s?' + urllib.parse.urlencode(query) + '&pn=' + str(page_index)
 		
-		data = retrieve_html(url)
-		# 	print("data: \n%s" % data)
-		for url in google_url_regex.findall(data):
-			db.enqueue(str(url))
-		for url in google_adurl_regex.findall(data):
-			db.enqueue(str(url))
+		try:
+			data = retrieve_html(url)
+			# 	print("data: \n%s" % data)
+			for url in google_url_regex.findall(data):
+				db.enqueue(str(url))
+			for url in google_adurl_regex.findall(data):
+				db.enqueue(str(url))
+		except Exception as e:
+			logger.error(e)
 
 		# for url in baidu_url_regex.findall(data):
 		# 	db.enqueue(str(url))
