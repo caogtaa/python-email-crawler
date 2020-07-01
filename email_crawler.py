@@ -126,7 +126,7 @@ def retrieve_html(url):
 	data = ""
 	try:
 		logger.info("Crawling %s" % url)
-		with urllib.request.urlopen(req, context=ctx) as f:
+		with urllib.request.urlopen(req, timeout=30, context=ctx) as f:
 			data = f.read()
 
 		# request = urllib.request.urlopen(req)
